@@ -24,51 +24,80 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 
-
 /**
  * 功能：实现和服务器的连接，向服务器发送一些验证性的数据，
  * 并请求相关数据或页面，得到相关Html页面的源代码
  */
 public class ConnWithServer {
-	HttpHost httpHost = null ;
-	DefaultHttpClient httpClient = new DefaultHttpClient();
-	HttpPost httpPost = null;
-	HttpResponse response = null;
-	HttpEntity entity = null;
-	CookieStore cookieStore = null;
+	
+	private HttpHost httpHost = null ;
+	private DefaultHttpClient httpClient = new DefaultHttpClient();
+	private HttpPost httpPost = null;
+	private HttpResponse response = null;
+	private HttpEntity entity = null;
+	private CookieStore cookieStore = null;
+	
+	public final static int CookieForWhat_ChengJi = 0;
+	public final static int CookieForWhat_JiaoPing = 1;
+	public final static int CookieForWhat_GuaKe = 2;
 	
 	/**
 	 * 第一步，向表单接受页面（处理登录数据的页面），
 	 * 发送个人学号、密码请求，
-	 * 如果验证成功，会得到一个带有个人信息的Cookie文件，
+	 * 验证成功，会得到一个带有个人信息的Cookie文件，
 	 * 验证失败，则没有Cookie文件返回；
 	 */
-	public boolean getCookies(String forWhat,String stuid,String pwd) throws ParseException, IOException{
+	public boolean getRightCookies(int forWhat,String stuid,String pwd) throws ParseException, IOException{
+		boolean isRightCookie = true;
 		List<NameValuePair> nvps = new ArrayList <NameValuePair>();
-		if(forWhat.equals("ChengJi")){
+		if(forWhat == CookieForWhat_ChengJi){
 			httpPost = new HttpPost("http://202.207.177.15:7777/pls/wwwbks/bks_login2.login");
 			nvps.add(new BasicNameValuePair("stuid", stuid));
 			nvps.add(new BasicNameValuePair("pwd", pwd));
-		}else if(forWhat.equals("JiaoPing")){
+		}
+		
+		else if( forWhat == CookieForWhat_JiaoPing){
 			httpPost = new HttpPost("http://202.207.177.15:8081/jxpg/login.jsp");
 			nvps.add(new BasicNameValuePair("userName", stuid));
 			nvps.add(new BasicNameValuePair("password", pwd));
 			nvps.add(new BasicNameValuePair("identity","student"));
-		}else if (forWhat.equals("GuaKe")){
-			
 		}
+		
+		else if ( forWhat == CookieForWhat_GuaKe){
+			//empty
+		}
+		
 		httpPost.setEntity(new UrlEncodedFormEntity(nvps, "GB2312"));
 		response = httpClient.execute(httpPost);
 		entity = response.getEntity();
 		
-		//这一句太TMD重要了！要是不Consume这个Entity的话，下面的一步就根本没法实施！
+		//这一句很重要！要是不Consume这个Entity的话，下面的一步就根本没法实施！
 		EntityUtils.consume(entity);
         
 		cookieStore = httpClient.getCookieStore();
 		List<Cookie> cookies = httpClient.getCookieStore().getCookies();
         
-		return !cookies.isEmpty();
-	} //getCookies();
+		switch(forWhat) {
+		case CookieForWhat_ChengJi:
+		case CookieForWhat_GuaKe:
+			isRightCookie = !cookies.isEmpty();
+			break;
+		case CookieForWhat_JiaoPing:
+			if(entity != null){
+				String line = null;
+				InputStream is = entity.getContent();
+				BufferedReader br = new BufferedReader(new InputStreamReader(is));
+				while( (line = br.readLine()) != null ){
+					if(line.matches(".*alert.*")){
+						isRightCookie = false;
+						break;
+					}
+				}
+			}
+			break;
+		} //switch()
+		return isRightCookie;
+	} //method.getCookies();
 	
 	/**
 	 * 开始访问登陆成功后的Html欢迎界面，只为了获得里面的一些诸如学院、学生姓名、学号之类的信息；			
@@ -139,19 +168,14 @@ public class ConnWithServer {
 			}
 			br.close();
 			is.close();		
-		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
+		} 
+		catch (ClientProtocolException e) {e.printStackTrace();} 
+		catch (IOException e) {e.printStackTrace();} 
+		finally {
 			try {
 				EntityUtils.consume(entity) ;
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			} 
+			catch (IOException e) {e.printStackTrace();}
 		}
 		return alGetTheHtml;
 	} //getTheHtml();
@@ -160,20 +184,27 @@ public class ConnWithServer {
 	 * 好吧，只好单独写一个专门负责用HttpPost方法提交一组数据的方法了↓
 	 * 这个方法的作用【负责给各个课程的教学评估的页面提交数据】
 	 */
-	public String postValues( ArrayList<ArrayList<String>> al ) throws ClientProtocolException, IOException{
+	public String sendDatas( ArrayList<ArrayList<String>> al ) throws ClientProtocolException, IOException{
 		String name = null;
 		String halfUrl = null;
-		String successClasses = null;
-		int num = al.size() + 1 ;  // num用来标识，有多少次提交数据成功了,当num减为0的时候，说明全部提交成功；
+		String succeededClasses = null;
+		List<NameValuePair> nvps = null;
+		//num用来标识，有多少次提交数据成功了,当num减为0的时候，说明全部提交成功
+		int num = al.size() + 1 ;
 		for (int i = 0 ; i < al.size() ; i ++) {
 			name = al.get(i).get(0);
 			halfUrl= al.get(i).get(1);
+			
+			//先要请求评估页面，之后才能发送评分信息，否则服务器不接收
 			HttpGet httpGet = new HttpGet("/jxpg/" + halfUrl);	
 			getTheHtml(httpGet, 8081);
+			//请求评估页面完成，开始向相关页面发送评估数据
 			halfUrl = halfUrl.replaceFirst( "pg", "answer" ) ;
-			List<NameValuePair> nvps = new ArrayList <NameValuePair>();;
 			httpPost = new HttpPost(new String("http://202.207.177.15:8081" + "/jxpg/" + halfUrl));
+			
+			//开始准备欲发送的数据
 			String []s = {"0000000002","0000000004","0000000005","0000000006","0000000007","0000000008","0000000009","0000000010","0000000011","0000000013"};
+			nvps = new ArrayList<NameValuePair>();
 			for(int j=0 ; j<10 ; j++){
 				nvps.add(new BasicNameValuePair(s[j], "1.0"));
 			}
@@ -181,20 +212,21 @@ public class ConnWithServer {
 			nvps.add(new BasicNameValuePair("kg", "否"));
 			httpPost.setEntity(new UrlEncodedFormEntity(nvps,HTTP.UTF_8));
 			response = httpClient.execute(httpPost);
-			if (response.getStatusLine().getStatusCode() == 304 ) {
+			if(response.getStatusLine().getStatusCode() == 304 ) {
 					num--;
-					successClasses = "," + name ;
+					succeededClasses = "," + name ;
 			}
 			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {e.printStackTrace();}
-		} 
+				Thread.sleep(200);
+			}
+			catch (InterruptedException e) {e.printStackTrace();}
+		} //Outer.for() 
 		if ( num == 0){
-			return successClasses;
+			return succeededClasses;
 		} else {
 			return null;
 		}
-	} //for();
+	} //method.sendDatas();
 	
 	/**
 	 * 开源包中说到的很重要的一步，就是在最后一定要释放httpClient占用的资源！
@@ -202,24 +234,4 @@ public class ConnWithServer {
 	public void releaseResouces(){
 		httpClient.getConnectionManager().shutdown();
 	}
-} //class ClientConnWithServer
-
-
-
-
-
-
-// 以下是暂时搁置的代码
-/*//在教评时需要特别验证一下entity的内容。因为无论账号密码对错，服务器都会发送一个Cookie过来
-if( forWhat.equals("JiaoPing") ) {
-		if(entity != null){
-			String line = null;
-			InputStream is = entity.getContent();
-			BufferedReader br = new BufferedReader(new InputStreamReader(is));
-			while( (line = br.readLine()) != null ){
-				if(line.matches(".*alert.*")){
-					return false;
-				}
-			}
-		}else {return false ;}
-}*/
+} //class.ClientConnWithServer

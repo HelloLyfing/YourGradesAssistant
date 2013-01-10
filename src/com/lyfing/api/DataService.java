@@ -15,27 +15,24 @@ public class DataService {
 	private static boolean ChengJi_YanZhengPassed = false;
 	private static ArrayList<ArrayList<String>> list = null;
 	
+	private final static String IllegalLogin = "用户名或密码不正确，不可进行本次操作";
 	/**
 	 * 登录验证
+	 * @param forWhat (初期可填任意值)分别为"本科生成绩系统验证"，"教学评估系统验证"、"挂科补考系统验证"
 	 * @param stuid 你懂得
 	 * @param pwd 你懂得
-	 * @param forWhat (初期可填任意值)分别为"本科生成绩系统验证"，"教学评估系统验证"、"挂科补考系统验证"
 	 * @return 验证通过，返回true，否则返回false.
 	 */
-	public static boolean yanZheng(String stuid, String pwd, String forWhat){
+	public static void yanZheng(int forWhat, String stuid, String pwd){
 		try {
-			if (cws.getCookies( "ChengJi" , stuid , pwd )) {
+			if (cws.getRightCookies( ConnWithServer.CookieForWhat_ChengJi , stuid , pwd )) {
 				ChengJi_YanZhengPassed = true;
-				return true ;
 			} else {
-				return false ;
+				ChengJi_YanZhengPassed = false;
 			}
-		} catch (ParseException e1) {e1.printStackTrace();}
-		  catch (IOException e2) { e2.printStackTrace();
 		}
-		finally {
-			return false;
-		}
+		catch (ParseException e1) {e1.printStackTrace();}
+		catch (IOException e2) { e2.printStackTrace();}
 	} //yanZheng();	
 	
 	/**
@@ -48,7 +45,7 @@ public class DataService {
 			s = ghfc.getLoginContent( cws.getLoginHtml());
 			return s;
 		} else {
-			return "用户名密码不正确，不可进行本步操作";
+			return IllegalLogin;
 		}
 	}
 	
@@ -70,22 +67,43 @@ public class DataService {
 	
 	/**
 	 * 一键教评. 注意：该方法为耗时操作，请务必新建线程运行之！
-	 * @return 成功，则返回[已教评的所有课程的名称]，失败返回[null];
+	 * 使用该方法前，需要登录正确的网站
+	 * @return 成功，返回[已教评的所有课程的名称]；失败返回[null]
 	 */
-	public static String yiJianJiaoPing(){
+	public static String yiJianJiaoPing(String stuid, String pwd){
+		
+		try {
+			if ( !cws.getRightCookies( cws.CookieForWhat_JiaoPing, stuid, pwd)) {
+				return IllegalLogin;
+			}
+		}
+		catch (ParseException e1) {e1.printStackTrace();} 
+		catch (IOException e1) {e1.printStackTrace();}
 		String s = null;
 		try {
-			s = cws.postValues( ghfc.getJiaoPingList( cws.getJiaoPingListHtml()));
-		} catch (ClientProtocolException e) { e.printStackTrace();}
-		  catch (IOException e) { e.printStackTrace();
+			s = cws.sendDatas( ghfc.getJiaoPingList( cws.getJiaoPingListHtml()));
+		} 
+		catch (ClientProtocolException e) { e.printStackTrace();}
+		catch (IOException e) { e.printStackTrace();}
+		if (s !=null){
+			return s;
 		}
-		return s;
+		else{
+			return "JiaoPing has failed.";
+		}
+	} //method.yiJianJiaoPing()
+	
+	/**
+	 * 判断用户是否登录
+	 * @return true,如果已经成功登录;false,如果用户名或密码不正确
+	 */
+	public static boolean isLoginLegal(){
+		return ChengJi_YanZhengPassed;
 	}
-	
-	
-	
 
-	
+
+
+
 /**
  * ！！！
  * 注意：使用前，请先在下方填写学号和密码！！！
@@ -95,9 +113,12 @@ public class DataService {
 	public static void main(String[] args) {
 		ArrayList<ArrayList<String>> list = null;
 		
-		String stuid = "填写你的学号"; String pwd = "填写你的成绩管理系统的密码";
+		//stuid ：你的学号
+		//pwd ：本科生个人成绩系统的密码
+		String stuid = "";
+		String pwd = "";
 		
-		yanZheng(stuid, pwd, "dd");
+		yanZheng(0, stuid, pwd);
 
 System.out.print( getUserInfo());
 System.out.println("\r\n");

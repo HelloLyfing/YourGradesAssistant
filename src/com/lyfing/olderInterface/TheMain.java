@@ -1,4 +1,4 @@
-﻿package com.lyfing.ui;
+﻿package com.lyfing.olderInterface;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -10,21 +10,21 @@ import org.apache.http.ParseException;
 import com.lyfing.service.ConnWithServer;
 import com.lyfing.service.DoTheMath;
 import com.lyfing.service.GetHtmlFormContent;
-import com.lyfing.service.ReadAndWriteInfoFile;
+import com.lyfing.olderInterface.ReadAndWriteInfoFile;
 
 public class TheMain  {
 	
-	static String classNum = null ; //【班级号】；
-	static String stuid = "" ; // 此处填【用户名】；
+	static String classNum = null ; //【班级号】
+	static String stuid = "" ; // 此处填【用户名】
 	static String pwd = "" ;  // 【密码】
 	static ConnWithServer cws = new ConnWithServer() ;
 	static DoTheMath doTheMath = null ;
 	static GetHtmlFormContent ghfc = new GetHtmlFormContent() ;
 	static UserInterface ui = new UserInterface("hello") ;
 	static ReadAndWriteInfoFile rwif = new ReadAndWriteInfoFile() ;
-	private static boolean yanZheng( ConnWithServer cws , String forWhat , String stuid , String pwd ){
+	private static boolean yanZheng( ConnWithServer cws , int forWhat , String stuid , String pwd ){
 		try {
-			if (cws.getCookies( "ChengJi" , stuid , pwd )) {
+			if (cws.getRightCookies( cws.CookieForWhat_ChengJi , stuid , pwd )) {
 				return true ;
 			} else {
 				return false ;
@@ -50,7 +50,7 @@ public class TheMain  {
 					stuid = classNum + ui.stuid.getText() ;
 					pwd = new String( ui.pwd.getPassword() ) ;
 				}
-				boolean b = yanZheng( cws , "ChengJi" , stuid , pwd) ;
+				boolean b = yanZheng( cws , cws.CookieForWhat_ChengJi , stuid , pwd) ;
 				if ( b ) {
 					ArrayList<String> al = new ArrayList<String>() ;
 					if ( ui.jcb.isSelected()) {
