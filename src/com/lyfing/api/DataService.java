@@ -10,12 +10,17 @@ import com.lyfing.service.GetHtmlFormContent;
 
 
 public class DataService {
+	
+	// 与服务器进行通信
 	private static ConnWithServer cws = new ConnWithServer() ;
+	// 从服务器返回的html源代码中，提取出所需数据或内容
 	private static GetHtmlFormContent ghfc = new GetHtmlFormContent() ;
+	
 	private static boolean ChengJi_YanZhengPassed = false;
 	private static ArrayList<ArrayList<String>> list = null;
 	
 	private final static String IllegalLogin = "用户名或密码不正确，不可进行本次操作";
+	
 	/**
 	 * 登录验证
 	 * @param forWhat (初期可填任意值)分别为"本科生成绩系统验证"，"教学评估系统验证"、"挂科补考系统验证"
@@ -66,7 +71,7 @@ public class DataService {
 	}
 	
 	/**
-	 * 一键教评. 注意：该方法为耗时操作，请务必新建线程运行之！
+	 * 一键教评.注意：该方法为耗时操作，请务必新建线程运行之！
 	 * 使用该方法前，需要登录正确的网站
 	 * @return 成功，返回[已教评的所有课程的名称]；失败返回[null]
 	 */
